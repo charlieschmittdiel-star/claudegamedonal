@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Coalition 1805</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <header id="topbar">
+    <div class="brand">
+      <span class="brand-name">Coalition</span>
+      <span class="brand-date" id="date">September 1805</span>
+    </div>
+    <div class="clock" role="group" aria-label="Game clock">
+      <button type="button" id="clock-toggle" aria-label="Start the clock">▶</button>
+      <button type="button" id="clock-slower" aria-label="Slower">−</button>
+      <span id="clock-speed" aria-label="Speed">●●○○</span>
+      <button type="button" id="clock-faster" aria-label="Faster">+</button>
+    </div>
+    <label class="sr" for="mode-select">Map mode</label>
+    <select id="mode-select">
+      <option value="political">Political map</option>
+      <option value="terrain">Terrain</option>
+      <option value="population">Population</option>
+      <option value="goods">Local goods</option>
+      <option value="supply">Supply</option>
+      <option value="weather">Weather</option>
+      <option value="vp">Victory points</option>
+      <option value="factions">Factions</option>
+      <option value="build">Construction</option>
+      <option value="resistance">Resistance</option>
+    </select>
+    <form id="search" autocomplete="off">
+      <label class="sr" for="search-input">Find a province</label>
+      <input id="search-input" type="search" placeholder="Search map" list="province-names" spellcheck="false">
+      <datalist id="province-names"></datalist>
+    </form>
+    <button type="button" id="nations-btn" class="ghost">Nations</button>
+    <button type="button" id="outliner-btn" class="ghost" title="Outliner (O)">Outliner</button>
+    <button type="button" id="economy-btn" class="ghost">State</button>
+    <button type="button" id="help-btn" class="ghost" aria-label="Controls">?</button>
+    <button type="button" id="player-chip" class="player" title="Your nation">
+      <span class="swatch" id="player-swatch"></span><span id="player-name">Choose nation</span><span id="player-money"></span>
+    </button>
+  </header>
+
+  <main id="stage">
+    <div id="layers">
+      <canvas id="map" role="img" aria-label="Map of the world in 1805. Drag to move, scroll or pinch to zoom, click a province for details." tabindex="0"></canvas>
+      <canvas id="overlay" aria-hidden="true"></canvas>
+    </div>
+    <div id="selbox" hidden></div>
+    <aside id="outliner" hidden><div class="drawer-head"><h2>Outliner</h2><button type="button" id="outliner-close" aria-label="Close outliner">×</button></div><div id="outliner-body"></div></aside>
+    <div id="modal" hidden></div>
+    <div id="tooltip" hidden></div>
+    <div id="hint" hidden></div>
+    <div id="offers" aria-live="polite"></div>
+    <div id="toasts" aria-live="polite"></div>
+
+    <div id="zoom" role="group" aria-label="Zoom">
+      <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
+      <button type="button" id="zoom-out" aria-label="Zoom out">−</button>
+      <button type="button" id="zoom-fit" aria-label="Show the whole map">⤢</button>
+    </div>
+
+    <div id="legend" hidden></div>
+
+    <div id="armybar"></div>
+
+    <div id="help" hidden>
+      <div class="help-card">
+        <div class="drawer-head"><h2>How to command</h2><button type="button" id="help-close" aria-label="Close help">×</button></div>
+        <div class="help-body">
+          <dl class="keys">
+            <dt>Left-click</dt><dd>Select a province, or an army counter (your own)</dd>
+            <dt>Left-drag</dt><dd>Draw a box to select your divisions (Shift adds to the selection)</dd>
+            <dt>Right-click</dt><dd>Order the selected divisions to march there</dd>
+            <dt>Right-drag, W A S D, arrows</dt><dd>Move the map (on a trackpad: two-finger scroll)</dd>
+            <dt>Wheel, + and −</dt><dd>Zoom (on a trackpad: pinch)</dd>
+            <dt>Space</dt><dd>Start or pause the clock; 1–4 set the speed</dd>
+            <dt>G</dt><dd>Form the selected divisions into a new army</dd>
+            <dt>Z</dt><dd>Front line: click a neighbouring nation's land to hold the whole border with it, or drag across your own provinces to draw a line</dd>
+            <dt>X</dt><dd>Offensive arrow: click the province the army should take (up to three arrows)</dd>
+            <dt>V</dt><dd>Fallback line: drag across provinces behind the front for the army to retreat to</dd>
+            <dt>B</dt><dd>Garrison: drag across provinces (ports, cities) for the army to hold</dd>
+            <dt>U</dt><dd>Division designer: build your own division templates from battalions and support companies</dd>
+            <dt>E</dt><dd>Execute or stop the army's offensive</dd>
+            <dt>N</dt><dd>Navy: fleets, shipbuilding, convoys and admirals</dd>
+            <dt>O</dt><dd>Outliner: your wars, armies, fleets, battles and things needing attention</dd>
+            <dt>L</dt><dd>Ledger: statistics and history of the great powers</dd>
+            <dt>M</dt><dd>Message log: every event, and settings for which ones pop up</dd>
+            <dt>J</dt><dd>Story journal: the storyline, and the historical / unhistorical switch</dd>
+            <dt>T</dt><dd>Research: the tech tree, slots, queue and bonuses</dd>
+            <dt>⚙</dt><dd>Settings: difficulty, sound and music, colour-blind mode, minimap, the guided tour, achievements, hot-seat, observer mode, sandbox tools, mods, and new games from 1809, 1812 or 1815</dd>
+            <dt>H</dt><dd>Halt the selected divisions</dd>
+            <dt>Esc</dt><dd>Cancel a tool, or clear the selection</dd>
+          </dl>
+          <p class="note">An army on a front line spreads itself out and shifts as the border moves. With an offensive set and executing, it attacks on its own where the odds suit its stance, massing at the head of the arrow. A division you order by hand obeys you first, then returns to its army.</p>
+          <p class="note">Give each army a general (click "No general" in the army bar). Shift-click several armies to form an army group under a field marshal. Divisions waiting on a front build up a planning bonus of up to +30% attack, used up as they attack.</p>
+          <p class="note">Armies eat. Supply flows out from your capital, depots, fortresses, big towns and ports, thinning with distance; roads carry it further, rivers and straits hinder it. Too many divisions in poor country go hungry, and troops cut off from every source are encircled and will be destroyed if they break. Build a supply depot near the front (Industry, on a province) and check the Supply map mode.</p>
+          <p class="note">Construction works as in HoI4: your builders come from civilian industry (less a share kept on consumer goods, set by the economy law). On the Construction tab, choose a building, then click your provinces on the map to queue it; projects are worked in queue order with up to 15 builders each, and roads speed the work. Mills, arsenals, dockyards and universities need a free building slot in their region. Research (T) is a tech tree by year: click to start research in a free slot or queue it; techs add slots, universities speed research, and great victories give one-off research bonuses.</p>
+          <p class="note">Diplomacy is on each nation's card: propose an alliance or invite them into your faction (they show what they think of it), guarantee their independence, send volunteers to a nation at war, or send muskets, cannon, uniforms, horses and gold. Occupied land resists: partisans strike at garrisons and an unguarded province may rise; keep troops in restless provinces (Resistance map mode). When a nation surrenders to you, the peace conference opens and the victors take turns spending points on regions, gold or a client state.</p>
+          <p class="note">The sea is divided into regions (click the water). Click a fleet counter (ships on the sea, or anchored by a harbour) to select it, then right-click a sea to send it there, or one of your harbours to base it there. Missions: patrol finds and holds a sea and blockades enemy harbours on it; strike force fights whatever is found; raiders take enemy merchantmen; escorts guard yours. Damaged or tired fleets come home to repair. Shipping troops needs convoys and is dangerous where the enemy holds the sea. Build dockyards in harbours to lay down ships (Navy tab, N).</p>
+          <p class="note">Snow, mud, rain and summer heat slow marches, weaken attacks and wear down men away from home. Russia in January is a bad idea. A nation surrenders once it loses 65% of its victory points (45% if its capital has been held three months); see the Victory points map mode. With fog of war on, you only see enemies near your land and troops; cavalry and scouts see further.</p>
+        </div>
+      </div>
+    </div>
+
+    <aside id="panel" aria-live="polite">
+      <button type="button" id="panel-close" aria-label="Close panel">×</button>
+      <div id="panel-body"></div>
+    </aside>
+
+    <aside id="economy" hidden>
+      <div class="drawer-head">
+        <h2 id="economy-title">Economy</h2>
+        <button type="button" id="economy-close" aria-label="Close economy">×</button>
+      </div>
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab is-on" data-tab="budget" role="tab">Budget</button>
+        <button type="button" class="tab" data-tab="politics" role="tab">Politics</button>
+        <button type="button" class="tab" data-tab="finance" role="tab">Finance</button>
+        <button type="button" class="tab" data-tab="market" role="tab">Market</button>
+        <button type="button" class="tab" data-tab="industry" role="tab">Industry</button>
+        <button type="button" class="tab" data-tab="construction" role="tab">Construction</button>
+        <button type="button" class="tab" data-tab="army" role="tab">Army</button>
+        <button type="button" class="tab" data-tab="production" role="tab">Production</button>
+        <button type="button" class="tab" data-tab="research" role="tab">Research</button>
+        <button type="button" class="tab" data-tab="navy" role="tab">Navy</button>
+        <button type="button" class="tab" data-tab="ledger" role="tab">Ledger</button>
+      </div>
+      <div id="economy-body"></div>
+    </aside>
+
+    <aside id="nations" hidden>
+      <div class="drawer-head">
+        <h2>Nations of 1805</h2>
+        <button type="button" id="nations-close" aria-label="Close list">×</button>
+      </div>
+      <ul id="nations-list"></ul>
+    </aside>
+  </main>
+</div>
+
+<script src="js/lib/topojson-client.min.js"></script>
+<script src="data/nations.js"></script>
+<script src="data/map.js"></script>
+<script src="js/econ-data.js"></script>
+<script src="js/econ.js"></script>
+<script src="js/units.js"></script>
+<script src="js/war.js"></script>
+<script src="js/war-units.js"></script>
+<script src="js/research.js"></script>
+<script src="js/production.js"></script>
+<script src="js/supply.js"></script>
+<script src="js/navy.js"></script>
+<script src="js/diplomacy.js"></script>
+<script src="js/construction.js"></script>
+<script src="js/story.js"></script>
+<script src="js/politics.js"></script>
+<script src="js/military.js"></script>
+<script src="js/commerce.js"></script>
+<script src="js/hoi.js"></script>
+<script src="js/hoi2.js"></script>
+<script src="js/war-ai.js"></script>
+<script src="js/modes.js"></script>
+<script src="js/mods.js"></script>
+<script src="js/state.js"></script>
+<script src="js/mapview.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/ui-econ.js"></script>
+<script src="js/ui-war.js"></script>
+<script src="js/ui-designer.js"></script>
+<script src="js/ui-prod.js"></script>
+<script src="js/ui-navy.js"></script>
+<script src="js/ui-build.js"></script>
+<script src="js/ui-diplo.js"></script>
+<script src="js/ui-story.js"></script>
+<script src="js/ui-politics.js"></script>
+<script src="js/ui-military.js"></script>
+<script src="js/ui-commerce.js"></script>
+<script src="js/ui-visuals.js"></script>
+<script src="js/feel.js"></script>
+<script src="js/ui-hoi.js"></script>
+<script src="js/ui-hoi2.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
