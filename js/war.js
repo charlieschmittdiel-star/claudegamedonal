@@ -470,7 +470,8 @@
       for (i = 0; i < this.divs.length; i++) {
         d = this.divs[i]; var T = this.stats(d), cm = this.cmdOf(d), n = this.econ.N[d.tag], m = this.M[d.tag], fighting = d.battle !== null || defending[d.id];
         var hunger = (T.has.train ? 0.75 : 1) * Math.max(0.3, 1 - cm.hunger) * (this.attrMod ? this.attrMod(d) : 1);
-        if (d.nosupply) { d.org = Math.max(0.1, d.org - 0.05); d.str -= 0.006 * hunger; }
+        if (d.nosupply && this.besieging && this.besieging(d)) { d.org = Math.max(0.3, d.org - 0.012); d.str -= 0.003 * hunger; }   // besiegers live off the land: slower wear, and they hold their ground
+        else if (d.nosupply) { d.org = Math.max(0.1, d.org - 0.05); d.str -= 0.006 * hunger; }
         else if (!fighting) {
           d.org = Math.min(1, d.org + (d.path.length ? 0.015 : 0.04) * T.regen * (1 + cm.regen + cm.org) * (0.3 + 0.7 * (d.sr === undefined ? 1 : d.sr)));
           if (!d.path.length) d.entr = Math.min(T.entrMax, d.entr + 0.02 * (1 + cm.entr));
@@ -581,7 +582,7 @@
     aiOrders: function (tag) {
       var self = this, foes = this.enemies(tag); if (!foes.length) return;
       var mine = this.divs.filter(function (d) { return d.tag === tag; }); if (!mine.length) return;
-      var idle = mine.filter(function (d) { return !d.path.length && !d.retreat && d.battle === null; });
+      var idle = mine.filter(function (d) { return !d.path.length && !d.retreat && d.battle === null && !self.besieging(d); });
       var capName = this.nations[tag].capital, cap = capName ? this.byName[capName] : null, used = {};
       // one division stays in the capital when there are enough to spare
       if (cap && cap.ctrl === tag && mine.length >= 5) { var g = idle.filter(function (d) { return d.prov === cap.id; })[0]; if (g) used[g.id] = 1; else if (idle.length) { self.orderMove(idle[0], cap.id, true); used[idle[0].id] = 1; } }

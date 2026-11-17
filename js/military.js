@@ -73,13 +73,15 @@
     if (this.mil && p.ctrl !== before && p.ctrl !== p.owner && before === p.owner) this.onCapture(p, p.ctrl);
   };
   War.sieging = function (id) { return this.mil && this.mil.sieges[id] || null; };
+  // is this division part of a siege its side is running where it stands? (armies and the computer leave such divisions be)
+  War.besieging = function (d) { var s = this.sieging(d.prov); return !!(s && this.allied(d.tag, s.by)); };
   function siegeDay(W) {
     var S = W.mil.sieges;
     Object.keys(S).forEach(function (k) {
       var id = +k, s = S[k], p = W.provs[id];
       if (p.ctrl !== p.owner || !W.hostile(s.by, p)) { delete S[k]; return; }
       var here = (W.at[id] || []).filter(function (d) { return W.allied(d.tag, s.by) && d.battle === null && !d.path.length; });
-      if (!here.length) { s.prog = Math.max(0, s.prog - 2); if (s.prog <= 0 && W.day - s.day > 10) delete S[k]; return; }
+      if (!here.length) { s.prog = Math.max(0, s.prog - 1); if (s.prog <= 0 && W.day - s.day > 10) delete S[k]; return; }   // leaving only slowly undoes the work
       var pw = 0; here.forEach(function (d) { var st = W.stats(d); pw += d.str * (d.type === 'art' || (st.n && st.n.art) ? 1.8 : 1) * (st.has.eng ? 1.5 : 1); });
       var starving = W.blockaded && W.blockaded(id, p.owner) ? 1.4 : 1;
       s.prog += Math.min(2, 0.4 + pw * 0.2) * starving;

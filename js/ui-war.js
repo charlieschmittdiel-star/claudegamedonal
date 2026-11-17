@@ -644,6 +644,16 @@
       c.fillStyle = '#b3261e'; c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.beginPath(); c.arc(X, Y, r, 0, 6.2832); c.fill(); c.stroke();
       c.strokeStyle = '#fff'; c.lineWidth = 1.6; c.beginPath(); c.moveTo(X - r * 0.5, Y - r * 0.5); c.lineTo(X + r * 0.5, Y + r * 0.5); c.moveTo(X + r * 0.5, Y - r * 0.5); c.lineTo(X - r * 0.5, Y + r * 0.5); c.stroke();
     });
+    // sieges: a ring that fills as the fortress weakens, with the days left; grey when nobody is working at it
+    if (War.mil) Object.keys(War.mil.sieges).forEach(function (key) {
+      var sg = War.mil.sieges[key], p = provs[key]; if (!p || p.x < v.x0 || p.x > v.x1 || p.y < v.y0 || p.y > v.y1) return;
+      var X = v.sx(p.x), Y = v.sy(p.y) + (big ? 6 : 3), r = big ? 11 : 8, here = (War.at[key] || []).some(function (d) { return War.allied(d.tag, sg.by) && d.battle === null && !d.path.length; });
+      var frac = Math.max(0, Math.min(1, sg.prog / sg.need)), top = -Math.PI / 2;
+      c.lineWidth = big ? 4 : 3; c.strokeStyle = 'rgba(10,8,5,0.65)'; c.beginPath(); c.arc(X, Y, r, 0, 6.2832); c.stroke();
+      c.strokeStyle = here ? Game.nations[sg.by].color : '#8a8f94'; c.beginPath(); c.arc(X, Y, r, top, top + frac * 6.2832); c.stroke();
+      c.strokeStyle = here ? '#d0a94f' : '#8a8f94'; c.lineWidth = 1.5; c.beginPath(); c.arc(X, Y, r + 2.5, top, top + frac * 6.2832); c.stroke();
+      if (big) { c.fillStyle = '#f2ead6'; c.font = '700 9px system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(here ? Math.round(frac * 100) + '%' : 'idle', X, Y); }
+    });
   }
 
   function showHelp(on) { $('help').hidden = !on; if (!on) { try { localStorage.setItem('coalition1805.help', '1'); } catch (e) { /* fine */ } } }

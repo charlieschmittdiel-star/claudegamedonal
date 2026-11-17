@@ -377,7 +377,7 @@
     }
     var fronts = this.frontOf(army); army.frontNow = fronts;
     if (!fronts.length) return;
-    var idle = divs.filter(function (d) { return !d.manual && !d.path.length && !d.retreat && d.battle === null; });
+    var idle = divs.filter(function (d) { return !d.manual && !d.path.length && !d.retreat && d.battle === null && !self.besieging(d); });   // divisions laying siege stay put
     var isFront = {}; fronts.forEach(function (id) { isFront[id] = 1; });
 
     // the axes: shortest way from each target back to our line
