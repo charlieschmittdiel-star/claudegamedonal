@@ -210,7 +210,7 @@
     function sideCol(list, front, attacking) {
       var c = h('div', 'bv-col'), fr = {}; (front || []).forEach(function (id) { fr[id] = 1; });
       var used = 0; list.forEach(function (d) { if (fr[d.id]) used += War.stats(d).w; });
-      c.appendChild(h('div', 'p-sub', 'In the line: width ' + used + ' of ' + (bt.frontage || 0)));
+      c.appendChild(h('div', 'p-sub', 'In the line: width ' + used + ' of ' + ((attacking ? bt.frontage : bt.frontageD || bt.frontage) || 0)));
       var tot = attacking ? [['Attacks a day', L.A], ['Breakthrough', L.B], ['Damaging hits taken', L.hA]] : [['Attacks a day', L.Ad], ['Defence', L.D], ['Damaging hits taken', L.hD]];
       var dl = h('dl', 'facts'); tot.forEach(function (x) { dl.appendChild(h('dt', null, x[0])); dl.appendChild(h('dd', null, f1(x[1]))); }); c.appendChild(dl);
       list.slice().sort(function (a, b) { return (fr[b.id] ? 1 : 0) - (fr[a.id] ? 1 : 0); }).forEach(function (d) {
@@ -227,7 +227,7 @@
     body.appendChild(h('h3', 'p-sub', 'What matters here'));
     var ml = h('ul', 'mods');
     var tn = { p: 'Plains', h: 'Hills', f: 'Forest', s: 'Marsh', m: 'Mountains', d: 'Desert' }[p.terrain];
-    var li0 = h('li'); li0.appendChild(h('span', null, 'Terrain: ' + tn + ', combat width ' + (War.FRONT[p.terrain]))); ml.appendChild(li0);
+    var li0 = h('li'); li0.appendChild(h('span', null, 'Terrain: ' + tn + ', combat width ' + (War.FRONT[p.terrain]) + (bt.frontage && bt.frontage !== War.FRONT[p.terrain] ? ' (' + bt.frontage + ' in this battle)' : ''))); ml.appendChild(li0);
     (L.mods || []).forEach(function (m) { var li = h('li'); li.appendChild(h('span', null, m[0])); li.appendChild(h('span', 'n ' + (typeof m[1] === 'number' && m[1] < 0 ? 'imp' : 'exp'), typeof m[1] === 'number' ? (m[1] > 0 ? '+' : '') + m[1] + '% attack' : m[1])); ml.appendChild(li); });
     var dug = 0; def.forEach(function (d) { dug += d.entr || 0; }); if (def.length) { var li2 = h('li'); li2.appendChild(h('span', null, 'Defenders dug in')); li2.appendChild(h('span', 'n imp', '+' + Math.round(dug / def.length * 100) + '% defence')); ml.appendChild(li2); }
     var pl = 0; att.forEach(function (d) { pl += d.plan || 0; }); if (att.length && pl) { var li3 = h('li'); li3.appendChild(h('span', null, 'Attackers\' planning')); li3.appendChild(h('span', 'n exp', '+' + Math.round(pl / att.length * 100) + '% attack')); ml.appendChild(li3); }

@@ -285,7 +285,7 @@
     var t = typeof tplOrCls === 'number' ? this.tplById(tplOrCls) : this.tplOfCls(tag, tplOrCls), T = this.tplStats(t), n = this.econ.N[tag], cost = T.money * (n.pi || 1);
     this.M[tag].manpower -= T.men; for (var g in T.eq) n.stockpile[g] -= T.eq[g];
     n.treasury -= cost; n.spentBuild += cost;
-    this.recruits.push({ tag: tag, tpl: t.id, prov: prov, left: T.days });
+    this.recruits.push({ tag: tag, tpl: t.id, prov: prov, left: T.days, total: T.days });
     return null;
   };
   War.legDays = function (d, from, leg) {
@@ -305,6 +305,33 @@
   War.attrMod = function (d) { return Math.max(0.3, 1 - this.mod(d.tag, 'attr')); };
   War.river = function (a, b) { var p = this.provs[a]; return !!(p.riv && p.riv.indexOf(b) >= 0); };
 
+  // ---------- flanking ----------
+  // A narrow front no longer caps a big army at one or two divisions: an attacker with more troops than fit in the
+  // line, and more troops than the defenders, sends columns round the sides, which lengthens the attacker's line
+  // (not the defender's). How much depends on the ground (open country is
+  // easy to go round, mountain passes are not), on the share of cavalry, and on the best general present.
+  // [share of the surplus width that becomes extra frontage, most extra width]
+  var FLANK = { p: [0.5, 60], d: [0.5, 60], h: [0.45, 46], f: [0.4, 40], s: [0.3, 28], m: [0.4, 34] };
+  War.FLANK = FLANK;
+  // Only width the attacker has beyond what the defenders bring counts: equal armies get no extra line.
+  War.flankWidth = function (A, frontage, t, Df) {
+    var F = FLANK[t] || FLANK.p, self = this, total = 0, cavW = 0, skill = 0, defW = 0;
+    (Df || []).forEach(function (d) { if (d.org > 0.06) defW += self.stats(d).w; });
+    A.forEach(function (d) {
+      if (d.org <= 0.06) return;
+      var s = self.stats(d); total += s.w;
+      if (s.nbat) cavW += s.w * s.n.cav / s.nbat;
+      var cm = self.cmdOf(d); if (cm.who && cm.who.skill > skill) skill = cm.who.skill;
+    });
+    var surplus = Math.min(total - frontage, total - defW); if (surplus <= 0) return 0;
+    if (!skill) skill = 2;   // an average general when nobody is named
+    var cavShare = total ? cavW / total : 0, open = t === 'p' || t === 'd' || t === 'h';
+    var rate = F[0] * (1 + (open ? 0.5 : 0.2) * cavShare) * (1 + 0.08 * (skill - 2));
+    return Math.max(0, Math.min(F[1], Math.round(surplus * rate)));
+  };
+  // a defender who cannot fill the line is turned on the flanks: up to +15% attack
+  War.outflank = function (wa, wd) { if (!wd) return 0; return Math.max(0, Math.min(0.15, (wa / wd - 1.25) * 0.2)); };
+
   // ---------- battles ----------
   // Each day: each side puts divisions into the line up to the province's combat width (more if attacked from
   // several sides), the rest wait in reserve. Every attack a division makes is parried by the target's defence
@@ -319,9 +346,11 @@
     bt.days++;
     var origins = {}, sea = false, strait = false, river = false;
     A.forEach(function (d) { origins[d.prov] = 1; if (d.path[0].sea) sea = true; else if (self.provs[d.prov].straits.indexOf(bt.prov) >= 0) strait = true; else if (self.river(d.prov, bt.prov)) river = true; });
-    var dirs = Object.keys(origins).length, frontage = FRONT[p.terrain] + Math.min(60, 30 * (dirs - 1));
-    bt.frontage = frontage; bt.dirs = dirs;
-    function line(list, prev, first) {
+    var dirs = Object.keys(origins).length, base = FRONT[p.terrain] + Math.min(60, 30 * (dirs - 1));
+    // the flanking columns lengthen only the attacker's line: the defenders are held where they stand
+    var flank = this.flankWidth(A, base, p.terrain, Df), frontage = base + flank;
+    bt.frontage = frontage; bt.frontageD = base; bt.dirs = dirs; bt.flank = flank;
+    function line(list, prev, first, frontage) {
       var ids = {}, used = 0, out = [], byId = {}; list.forEach(function (d) { byId[d.id] = d; });
       (prev || []).forEach(function (id) { var d = byId[id]; if (d && d.org > 0.06 && !ids[id]) { ids[id] = 1; out.push(d); used += self.stats(d).w; } });
       list.slice().sort(function (x, y) { return (y.plan || 0) - (x.plan || 0) || y.org - x.org; }).forEach(function (d) {
@@ -330,7 +359,7 @@
       });
       return { list: out, used: used };
     }
-    var la = line(A, bt.fa, bt.days === 1), ld = line(Df, bt.fd, bt.days === 1);
+    var la = line(A, bt.fa, bt.days === 1, frontage), ld = line(Df, bt.fd, bt.days === 1, base);
     bt.fa = la.list.map(function (d) { return d.id; }); bt.fd = ld.list.map(function (d) { return d.id; });
     bt.wa = la.used; bt.wd = ld.used; bt.na = A.length; bt.nd = Df.length;
 
@@ -339,7 +368,10 @@
     var penalty = (sea ? 0.5 : strait ? 0.65 : 1), mods = [];
     if (sea) mods.push(['Landing from the sea', -50]); else if (strait) mods.push(['Across a strait', -35]);
     if (T_ATK[t] < 1) mods.push(['Terrain: ' + ({ h: 'hills', f: 'forest', s: 'marsh', m: 'mountains' })[t], Math.round((T_ATK[t] - 1) * 100)]);
-    if (dirs > 1) mods.push(['Attacked from ' + dirs + ' sides', '+' + (frontage - FRONT[t]) + ' width']);
+    if (dirs > 1) mods.push(['Attacked from ' + dirs + ' sides', '+' + (base - FRONT[t]) + ' width']);
+    if (flank) mods.push(['Flanking columns', '+' + flank + ' width']);
+    var ob = this.outflank(la.used, ld.used);
+    if (ob > 0.005) mods.push(['Outflanking the defenders', Math.round(ob * 100)]);
     if (fort) mods.push(['Fort level ' + fort, -15 * fort]);
     if (wx && wx.atk < 1) mods.push([wx.name, Math.round((wx.atk - 1) * 100)]);
     // attacker's side
@@ -351,7 +383,7 @@
       var a = cls * T_ATK[t] * penalty * riv * fortM * (1 + cm.atk + (hilly ? cm.hills : 0)) * (1 + (d.plan || 0)) * xp * s.q * (s.has.scouts ? 1.08 : 1) * (d.nosupply ? 0.6 : 1) * (wx ? wx.atk : 1);
       var sfa = 0.7 + 0.3 * (d.sr === undefined ? 1 : d.sr);
       var dma = self.dm ? self.dm(d, 'a', bt) : 1;
-      d._a = a * d.str * sfa * dma; d._b = sfa * s.brk * (1 + cm.brk + cm.atk) * (1 + 0.5 * (d.plan || 0)) * xp * s.q * d.str * (d.nosupply ? 0.6 : 1) * dma;
+      d._a = a * d.str * sfa * dma * (1 + ob); d._b = sfa * s.brk * (1 + cm.brk + cm.atk) * (1 + 0.5 * (d.plan || 0)) * xp * s.q * d.str * (d.nosupply ? 0.6 : 1) * dma * (1 + ob);
       sumA += d._a; sumB += d._b; wA += s.w;
     });
     if (river) mods.push(['Crossing a river', -30]);

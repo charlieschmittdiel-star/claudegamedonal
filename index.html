@@ -51,7 +51,7 @@
 
   <main id="stage">
     <div id="layers">
-      <canvas id="map" role="img" aria-label="Map of the world in 1805. Drag to move, scroll or pinch to zoom, click a province for details." tabindex="0"></canvas>
+      <canvas id="map" role="img" aria-label="Map of the world in 1805. Drag to move, scroll or pinch to zoom, click land for its country, double-click for the province." tabindex="0"></canvas>
       <canvas id="overlay" aria-hidden="true"></canvas>
     </div>
     <div id="selbox" hidden></div>
@@ -77,14 +77,16 @@
         <div class="drawer-head"><h2>How to command</h2><button type="button" id="help-close" aria-label="Close help">×</button></div>
         <div class="help-body">
           <dl class="keys">
-            <dt>Left-click</dt><dd>Select a province, or an army counter (your own)</dd>
+            <dt>Left-click</dt><dd>A division counter (your own) picks it, click it again to let go; land shows that country</dd>
+            <dt>Double-click</dt><dd>Open the province itself</dd>
             <dt>Left-drag</dt><dd>Draw a box to select your divisions (Shift adds to the selection)</dd>
             <dt>Right-click</dt><dd>Order the selected divisions to march there</dd>
             <dt>Right-drag, W A S D, arrows</dt><dd>Move the map (on a trackpad: two-finger scroll)</dd>
             <dt>Wheel, + and −</dt><dd>Zoom (on a trackpad: pinch)</dd>
             <dt>Space</dt><dd>Start or pause the clock; 1–4 set the speed</dd>
             <dt>G</dt><dd>Form the selected divisions into a new army</dd>
-            <dt>Z</dt><dd>Front line: click a neighbouring nation's land to hold the whole border with it, or drag across your own provinces to draw a line</dd>
+            <dt>Z</dt><dd>Front line: drag along the border, piece of land by piece of land, to draw it where you want (or click a neighbouring nation's land to hold the whole border). Works on picked divisions too: they become a new army</dd>
+            <dt>Touch</dt><dd>Tap a counter to pick it, tap land to march there, Draw front then drag a finger along the border; tap land for its country, double-tap for the province; pinch to zoom</dd>
             <dt>X</dt><dd>Offensive arrow: click the province the army should take (up to three arrows)</dd>
             <dt>V</dt><dd>Fallback line: drag across provinces behind the front for the army to retreat to</dd>
             <dt>B</dt><dd>Garrison: drag across provinces (ports, cities) for the army to hold</dd>
@@ -101,6 +103,7 @@
             <dt>Esc</dt><dd>Cancel a tool, or clear the selection</dd>
           </dl>
           <p class="note">An army on a front line spreads itself out and shifts as the border moves. With an offensive set and executing, it attacks on its own where the odds suit its stance, massing at the head of the arrow. A division you order by hand obeys you first, then returns to its army.</p>
+          <p class="note">Narrow fronts: if you attack with more troops than both the defenders and the province's combat width, the spare divisions march round the flanks and lengthen your line (most in open country, less in hills and passes; cavalry and good generals help). A defender who cannot fill the line is outflanked for up to +15% attack.</p>
           <p class="note">Give each army a general (click "No general" in the army bar). Shift-click several armies to form an army group under a field marshal. Divisions waiting on a front build up a planning bonus of up to +30% attack, used up as they attack.</p>
           <p class="note">Armies eat. Supply flows out from your capital, depots, fortresses, big towns and ports, thinning with distance; roads carry it further, rivers and straits hinder it. Too many divisions in poor country go hungry, and troops cut off from every source are encircled and will be destroyed if they break. Build a supply depot near the front (Industry, on a province) and check the Supply map mode.</p>
           <p class="note">Construction works as in HoI4: your builders come from civilian industry (less a share kept on consumer goods, set by the economy law). On the Construction tab, choose a building, then click your provinces on the map to queue it; projects are worked in queue order with up to 15 builders each, and roads speed the work. Mills, arsenals, dockyards and universities need a free building slot in their region. Research (T) is a tech tree by year: click to start research in a free slot or queue it; techs add slots, universities speed research, and great victories give one-off research bonuses.</p>
@@ -129,6 +132,7 @@
         <button type="button" class="tab" data-tab="industry" role="tab">Industry</button>
         <button type="button" class="tab" data-tab="construction" role="tab">Construction</button>
         <button type="button" class="tab" data-tab="army" role="tab">Army</button>
+        <button type="button" class="tab" data-tab="training" role="tab">Training</button>
         <button type="button" class="tab" data-tab="production" role="tab">Production</button>
         <button type="button" class="tab" data-tab="research" role="tab">Research</button>
         <button type="button" class="tab" data-tab="navy" role="tab">Navy</button>
@@ -179,6 +183,7 @@
 <script src="js/ui-prod.js"></script>
 <script src="js/ui-navy.js"></script>
 <script src="js/ui-build.js"></script>
+<script src="js/ui-train.js"></script>
 <script src="js/ui-diplo.js"></script>
 <script src="js/ui-story.js"></script>
 <script src="js/ui-politics.js"></script>

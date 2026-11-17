@@ -22,6 +22,9 @@
   var T_WIDTH = { p: 8, h: 6, f: 6, s: 5, m: 4, d: 7 };             // divisions a side can bring to bear at once
 
   // Field armies in 1805 as [infantry, cavalry, artillery] divisions. Anyone not listed gets a force sized to its people.
+  // Starting garrisons thinned on purpose, so France is not stopped at the Alpine and Danube gates on day one:
+  // Austria keeps its troops in Bohemia, Moravia, Hungary and Italy, and the Tyrol and Danube passes are lightly held.
+  var THIN = { AUS: { Linz: 0.3, Innsbruck: 0.3, Bregenz: 0.3, Freiburg: 0.3, Salzburg: 0.3, Lienz: 0.3, 'St. Pölten': 0.5 } };
   var ARMIES = {
     FRA: [34, 9, 5], AUS: [26, 8, 4], RUS: [30, 9, 5], PRU: [18, 6, 3], GBR: [9, 2, 2], SPA: [10, 3, 1], OTT: [16, 8, 2],
     ITA: [3, 1, 0], BAT: [2, 0, 1], BAV: [3, 1, 0], WUR: [1, 0, 0], BAD: [1, 0, 0], SWE: [4, 1, 1], DEN: [4, 1, 0], NAP: [3, 1, 0],
@@ -208,6 +211,7 @@
         if (foes.length && dist[p.id] !== undefined && dist[p.id] <= 5) v = 6 / (dist[p.id] * dist[p.id]);
         else { var border = false; for (var i = 0; i < p.adj.length; i++) if (self.provs[p.adj[i]].owner !== tag) border = true; v = border ? 1 : 0.15; }
         v *= 0.5 + Math.min(1.5, P[p.id].pop / 300000);
+        var lite = THIN[tag] && THIN[tag][p.name]; if (lite) v *= lite;   // fewer troops at a start on the borders we want open
         if (cap && p.id === cap.id) v += 3;
         w[p.id] = v; total += v;
       });
@@ -254,7 +258,7 @@
       var T = TYPES[type], n = this.econ.N[tag], cost = T.money * (n.pi || 1);
       this.M[tag].manpower -= T.men; for (var g in T.eq) n.stockpile[g] -= T.eq[g];
       n.treasury -= cost; n.spentBuild += cost;
-      this.recruits.push({ tag: tag, type: type, prov: prov, left: T.days });
+      this.recruits.push({ tag: tag, type: type, prov: prov, left: T.days, total: T.days });
       return null;
     },
 
@@ -466,7 +470,8 @@
       for (i = 0; i < this.divs.length; i++) {
         d = this.divs[i]; var T = this.stats(d), cm = this.cmdOf(d), n = this.econ.N[d.tag], m = this.M[d.tag], fighting = d.battle !== null || defending[d.id];
         var hunger = (T.has.train ? 0.75 : 1) * Math.max(0.3, 1 - cm.hunger) * (this.attrMod ? this.attrMod(d) : 1);
-        if (d.nosupply) { d.org = Math.max(0.1, d.org - 0.05); d.str -= 0.006 * hunger; }
+        if (d.nosupply && this.besieging && this.besieging(d)) { d.org = Math.max(0.3, d.org - 0.012); d.str -= 0.003 * hunger; }   // besiegers live off the land: slower wear, and they hold their ground
+        else if (d.nosupply) { d.org = Math.max(0.1, d.org - 0.05); d.str -= 0.006 * hunger; }
         else if (!fighting) {
           d.org = Math.min(1, d.org + (d.path.length ? 0.015 : 0.04) * T.regen * (1 + cm.regen + cm.org) * (0.3 + 0.7 * (d.sr === undefined ? 1 : d.sr)));
           if (!d.path.length) d.entr = Math.min(T.entrMax, d.entr + 0.02 * (1 + cm.entr));
@@ -577,7 +582,7 @@
     aiOrders: function (tag) {
       var self = this, foes = this.enemies(tag); if (!foes.length) return;
       var mine = this.divs.filter(function (d) { return d.tag === tag; }); if (!mine.length) return;
-      var idle = mine.filter(function (d) { return !d.path.length && !d.retreat && d.battle === null; });
+      var idle = mine.filter(function (d) { return !d.path.length && !d.retreat && d.battle === null && !self.besieging(d); });
       var capName = this.nations[tag].capital, cap = capName ? this.byName[capName] : null, used = {};
       // one division stays in the capital when there are enough to spare
       if (cap && cap.ctrl === tag && mine.length >= 5) { var g = idle.filter(function (d) { return d.prov === cap.id; })[0]; if (g) used[g.id] = 1; else if (idle.length) { self.orderMove(idle[0], cap.id, true); used[idle[0].id] = 1; } }

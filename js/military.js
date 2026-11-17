@@ -27,10 +27,13 @@
     Smolensk: 1, Hamburg: 1, Badajoz: 2, Zaragoza: 1, Gerona: 2, 'Cádiz': 3, Lisbon: 2, Corfu: 2, Kovno: 1, Alessandria: 3, Verona: 2, Glogau: 2, 'Küstrin': 2, Stettin: 2,
     'Königsberg': 2, Glatz: 2, Mainz: 3, Luxembourg: 3, Gaeta: 2, Bender: 2, Belgrade: 3, Varna: 2, Silistra: 2, Copenhagen: 2, Venice: 2, Pamplona: 2, Brest: 2, Toulon: 3 };
   War.FORTRESSES = FORTRESSES;
+  var START_ROADS = { Passau: 3, Linz: 3 };
   War.initMilitary = function () {
     var self = this;
     this.mil = { sieges: {}, plunder: { FRA: true, RUS: true }, rally: {}, pow: {}, log: [], awoke: {}, winterLoss: {}, honours: 0, hired: {} };
     this.provs.forEach(function (p) { var f = FORTRESSES[p.name]; if (f) { var b = self.econ.P[p.id].b; b.fort = Math.max(b.fort || 0, f); } });
+    // the Danube road into Austria: the Passau and Linz crossing starts with a made road (marching -30% into each)
+    this.provs.forEach(function (p) { var r = START_ROADS[p.name]; if (r) { var b = self.econ.P[p.id].b; b.roads = Math.max(b.roads || 0, r); } });
     // the Imperial Guard: France's best division near Paris
     var paris = this.byName.Paris, fr = this.divs.filter(function (d) { return d.tag === 'FRA' && d.type === 'inf'; });
     if (paris && fr.length) { fr.sort(function (a, b) { return Math.hypot(self.provs[a.prov].x - paris.x, self.provs[a.prov].y - paris.y) - Math.hypot(self.provs[b.prov].x - paris.x, self.provs[b.prov].y - paris.y); }); var g = fr[0]; g.guard = true; g.xp = 0.9; g.name = 'Imperial Guard'; }
@@ -70,13 +73,15 @@
     if (this.mil && p.ctrl !== before && p.ctrl !== p.owner && before === p.owner) this.onCapture(p, p.ctrl);
   };
   War.sieging = function (id) { return this.mil && this.mil.sieges[id] || null; };
+  // is this division part of a siege its side is running where it stands? (armies and the computer leave such divisions be)
+  War.besieging = function (d) { var s = this.sieging(d.prov); return !!(s && this.allied(d.tag, s.by)); };
   function siegeDay(W) {
     var S = W.mil.sieges;
     Object.keys(S).forEach(function (k) {
       var id = +k, s = S[k], p = W.provs[id];
       if (p.ctrl !== p.owner || !W.hostile(s.by, p)) { delete S[k]; return; }
       var here = (W.at[id] || []).filter(function (d) { return W.allied(d.tag, s.by) && d.battle === null && !d.path.length; });
-      if (!here.length) { s.prog = Math.max(0, s.prog - 2); if (s.prog <= 0 && W.day - s.day > 10) delete S[k]; return; }
+      if (!here.length) { s.prog = Math.max(0, s.prog - 1); if (s.prog <= 0 && W.day - s.day > 10) delete S[k]; return; }   // leaving only slowly undoes the work
       var pw = 0; here.forEach(function (d) { var st = W.stats(d); pw += d.str * (d.type === 'art' || (st.n && st.n.art) ? 1.8 : 1) * (st.has.eng ? 1.5 : 1); });
       var starving = W.blockaded && W.blockaded(id, p.owner) ? 1.4 : 1;
       s.prog += Math.min(2, 0.4 + pw * 0.2) * starving;

@@ -173,6 +173,11 @@
     panel = $('panel'); body = $('panel-body'); stage = $('stage');
 
     Game.on('select', function (id) { view = id === null ? null : { type: 'province', id: id }; render(); if (id !== null) MapView.reveal(id); });
+    // one tap on the land shows the country that owns it; the map turns a double tap into Game.select (the province)
+    Game.provinceClick = function (id) {
+      if (Game.selected !== null) Game.select(null);
+      showNation(Game.province(id).owner, false);
+    };
     Game.on('player', function () { updatePlayerChip(); render(true); });
     Game.on('owner', function () { render(true); if (!$('nations').hidden) buildNationList(); });
     Game.on('reset', function () { view = null; render(); updatePlayerChip(); $('nations').hidden = true; });
@@ -206,5 +211,6 @@
     updatePlayerChip(); render();
   }
 
-  window.UI = { init: init, showNation: showNation, showSea: showSea, refresh: function () { if (view) render(true); }, view: function () { return view; }, h: h, num: num, isPhone: isPhone };
+  window.UI = { init: init, showNation: showNation, showSea: showSea, refresh: function () { if (view) render(true); }, view: function () { return view; }, h: h, num: num, isPhone: isPhone,
+    close: function () { if (Game.selected !== null) Game.select(null); if (view) { view = null; render(); } } };
 })();
