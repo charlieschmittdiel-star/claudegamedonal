@@ -629,9 +629,11 @@
   }
 
   // ---------- input ----------
-  // Mouse (laptop): left-click selects, left-drag draws a selection box, right-click gives orders,
-  // right- or middle-drag moves the map, the wheel zooms; on a trackpad two-finger scroll moves the map and pinch zooms.
-  // Keyboard: W A S D or arrows move the map, + and - zoom. Touch: drag to move, pinch to zoom, tap to select.
+  // Mouse (laptop): left-click a counter selects it, left-click land shows its country, double-click shows the province,
+  // left-drag draws a selection box, right-click gives orders, right- or middle-drag moves the map, the wheel zooms;
+  // on a trackpad two-finger scroll moves the map and pinch zooms. Keyboard: W A S D or arrows move the map, + and - zoom.
+  // Touch: drag to move, pinch to zoom, tap a counter to pick it, then tap land to march there; tap land for its
+  // country, double-tap for the province. With a painting tool on (front lines), one finger paints and two pinch.
   function bindInput() {
     var pointers = {}, count = 0, start = null, pinch = null, moved = false, lastTap = 0, lastTapPos = null;
     var tip = document.getElementById('tooltip'), box = document.getElementById('selbox');
@@ -661,13 +663,31 @@
       box.hidden = false; box.style.left = Math.min(a.x, b.x) + 'px'; box.style.top = Math.min(a.y, b.y) + 'px';
       box.style.width = Math.abs(a.x - b.x) + 'px'; box.style.height = Math.abs(a.y - b.y) + 'px';
     }
-    // a click or tap on the map: a tool waiting for a province gets it first, then armies, then the province itself
+    // a click or tap on the map: a tool waiting for a province gets it first, then unit counters, then orders for
+    // the divisions you have picked, then the land itself. Returns the province id when the tap fell on plain land,
+    // which the caller turns into the owner's country (one tap) or the province (a double tap); null otherwise.
     function click(p, e) {
-      var id = pick(p.x, p.y), mod = !!(e.shiftKey || e.ctrlKey || e.metaKey);
-      if (Game.pick) { var fn = Game.pick; Game.pick = null; fn(id); return; }
-      if (Game.unitClick && Game.unitClick(p.x, p.y, mod)) return;
-      if (id === null && Game.seaClick && Game.seaClick((p.x - tx) / k, (p.y - ty) / k)) return;
-      Game.select(id);
+      var id = pick(p.x, p.y), mod = !!(e.shiftKey || e.ctrlKey || e.metaKey), touch = e.pointerType !== 'mouse';
+      if (Game.pick) { var fn = Game.pick; Game.pick = null; fn(id); return null; }
+      if (Game.unitClick && Game.unitClick(p.x, p.y, mod)) return null;
+      if (Game.mapTap && Game.mapTap(id, { touch: touch, mod: mod })) return null;
+      if (id === null) { if (!(Game.seaClick && Game.seaClick((p.x - tx) / k, (p.y - ty) / k))) Game.select(null); return null; }
+      if (!Game.provinceClick) { Game.select(id); return null; }
+      return id;
+    }
+    // the country waits a moment, so a panel sliding up over the spot cannot swallow the second tap of a double tap
+    var DBL_MS = 300, landTimer = null, landId = null;
+    function flushLand() { if (landTimer) { clearTimeout(landTimer); landTimer = null; if (landId !== null) Game.provinceClick(landId); } landId = null; }
+    function landTap(id, p) {
+      landId = id; lastTap = Date.now(); lastTapPos = p;
+      landTimer = setTimeout(function () { landTimer = null; var i = landId; landId = null; if (i !== null) Game.provinceClick(i); }, DBL_MS);
+    }
+    // dragging with a painting tool (front lines and the like): fill in the provinces between two samples, so a
+    // quick swipe does not skip the small ones
+    function paintTo(p) {
+      var a = start.last || start, dx = p.x - a.x, dy = p.y - a.y, n = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 5));
+      for (var i = 1; i <= n && Game.paint; i++) Game.paint(pick(a.x + dx * i / n, a.y + dy * i / n));
+      start.last = { x: p.x, y: p.y };
     }
 
     host.addEventListener('pointerdown', function (e) {
@@ -677,7 +697,9 @@
       var p = pos(e); pointers[e.pointerId] = p; count++;
       try { host.setPointerCapture(e.pointerId); } catch (err) { /* not capturable: fine */ }
       if (count === 1) {
-        start = { x: p.x, y: p.y, tx: tx, ty: ty, mode: !mouse ? 'pan' : e.button === 0 ? (Game.paint ? 'paint' : 'box') : 'pan', button: mouse ? e.button : 0, mouse: mouse };
+        // a finger or left button paints while a painting tool is on; otherwise a finger pans and the left button boxes
+        var painting = !!Game.paint && (!mouse || e.button === 0);
+        start = { x: p.x, y: p.y, tx: tx, ty: ty, mode: painting ? 'paint' : !mouse ? 'pan' : e.button === 0 ? 'box' : 'pan', button: mouse ? e.button : 0, mouse: mouse };
         moved = false; pinch = null;
       } else if (count === 2) {
         var a = two(), d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y), mx2 = (a[0].x + a[1].x) / 2, my2 = (a[0].y + a[1].y) / 2;
@@ -694,11 +716,15 @@
       var p = pos(e); pointers[e.pointerId] = p;
       if (count === 1 && start) {
         var dx = p.x - start.x, dy = p.y - start.y;
-        if (!moved && Math.hypot(dx, dy) > 6) { moved = true; if (start.mode === 'pan') host.classList.add('is-dragging'); }
+        if (!moved && Math.hypot(dx, dy) > 6) {
+          moved = true;
+          if (start.mode === 'pan') host.classList.add('is-dragging');
+          else if (start.mode === 'paint' && Game.paint) { Game.paint(pick(start.x, start.y)); start.last = { x: start.x, y: start.y }; }
+        }
         if (!moved) return;
         if (start.mode === 'pan') setView(k, start.tx + dx, start.ty + dy);
         else if (start.mode === 'box') showBox(start, p);
-        else if (start.mode === 'paint' && Game.paint) Game.paint(pick(p.x, p.y));
+        else if (start.mode === 'paint' && Game.paint) paintTo(p);
       } else if (count >= 2 && pinch) {
         var a = two(), d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y), mx2 = (a[0].x + a[1].x) / 2, my2 = (a[0].y + a[1].y) / 2;
         var nk = Math.max(minK, Math.min(MAX_K, pinch.k * d / pinch.d));
@@ -715,11 +741,12 @@
         if (ok && !moved) {
           if (start.mouse && start.button === 2) { var id = pick(p.x, p.y); if (id !== null) Game.emit('context', id, { shift: e.shiftKey }); else Game.emit('seaContext', { x: (p.x - tx) / k, y: (p.y - ty) / k }); }
           else if (start.mouse && start.button === 1) { /* middle click: nothing */ }
-          else if (!start.mouse) {
-            var now = Date.now();
-            if (now - lastTap < 320 && lastTapPos && Math.hypot(p.x - lastTapPos.x, p.y - lastTapPos.y) < 24) { zoomAt(2, p.x, p.y, true); lastTap = 0; }
-            else { lastTap = now; lastTapPos = p; click(p, e); }
-          } else click(p, e);
+          else {
+            // left click or tap; a second one quickly in the same spot opens the province (pinch or the wheel zooms)
+            var now = Date.now(), near = lastTapPos && Math.hypot(p.x - lastTapPos.x, p.y - lastTapPos.y) < (start.mouse ? 8 : 24);
+            if (landTimer && now - lastTap < DBL_MS + 50 && near) { clearTimeout(landTimer); landTimer = null; var dId = landId; landId = null; Game.select(dId); }
+            else { flushLand(); var land = click(p, e); if (land !== null) landTap(land, p); }
+          }
         } else if (ok && moved) {
           if (start.mode === 'box') Game.emit('box', { x0: Math.min(start.x, p.x), y0: Math.min(start.y, p.y), x1: Math.max(start.x, p.x), y1: Math.max(start.y, p.y) }, { shift: e.shiftKey });
           else if (start.mode === 'paint' && Game.paintEnd) Game.paintEnd();

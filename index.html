@@ -51,7 +51,7 @@
 
   <main id="stage">
     <div id="layers">
-      <canvas id="map" role="img" aria-label="Map of the world in 1805. Drag to move, scroll or pinch to zoom, click a province for details." tabindex="0"></canvas>
+      <canvas id="map" role="img" aria-label="Map of the world in 1805. Drag to move, scroll or pinch to zoom, click land for its country, double-click for the province." tabindex="0"></canvas>
       <canvas id="overlay" aria-hidden="true"></canvas>
     </div>
     <div id="selbox" hidden></div>
@@ -77,14 +77,16 @@
         <div class="drawer-head"><h2>How to command</h2><button type="button" id="help-close" aria-label="Close help">×</button></div>
         <div class="help-body">
           <dl class="keys">
-            <dt>Left-click</dt><dd>Select a province, or an army counter (your own)</dd>
+            <dt>Left-click</dt><dd>A division counter (your own) picks it, click it again to let go; land shows that country</dd>
+            <dt>Double-click</dt><dd>Open the province itself</dd>
             <dt>Left-drag</dt><dd>Draw a box to select your divisions (Shift adds to the selection)</dd>
             <dt>Right-click</dt><dd>Order the selected divisions to march there</dd>
             <dt>Right-drag, W A S D, arrows</dt><dd>Move the map (on a trackpad: two-finger scroll)</dd>
             <dt>Wheel, + and −</dt><dd>Zoom (on a trackpad: pinch)</dd>
             <dt>Space</dt><dd>Start or pause the clock; 1–4 set the speed</dd>
             <dt>G</dt><dd>Form the selected divisions into a new army</dd>
-            <dt>Z</dt><dd>Front line: click a neighbouring nation's land to hold the whole border with it, or drag across your own provinces to draw a line</dd>
+            <dt>Z</dt><dd>Front line: drag along the border, piece of land by piece of land, to draw it where you want (or click a neighbouring nation's land to hold the whole border). Works on picked divisions too: they become a new army</dd>
+            <dt>Touch</dt><dd>Tap a counter to pick it, tap land to march there, Draw front then drag a finger along the border; tap land for its country, double-tap for the province; pinch to zoom</dd>
             <dt>X</dt><dd>Offensive arrow: click the province the army should take (up to three arrows)</dd>
             <dt>V</dt><dd>Fallback line: drag across provinces behind the front for the army to retreat to</dd>
             <dt>B</dt><dd>Garrison: drag across provinces (ports, cities) for the army to hold</dd>

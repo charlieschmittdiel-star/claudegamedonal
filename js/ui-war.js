@@ -86,7 +86,7 @@
   }
   // paint a list of your own provinces (front line, fallback line or garrison), or click a neighbour for a whole border
   function paintTool(a, kind) {
-    var label = { front: 'Front line for ' + a.name + ': click a neighbouring nation\'s land to hold that whole border, or drag across your provinces to draw a line',
+    var label = { front: 'Front for ' + a.name + ': drag along the border, province by province (tap enemy land for its whole border)',
       fallback: 'Fallback line for ' + a.name + ': drag across your provinces behind the front', garrison: 'Garrison for ' + a.name + ': drag across (or click) the provinces to hold' }[kind];
     cancelTool(); setHint(label + ' (Esc cancels)');
     function setLine(list) {
@@ -105,13 +105,31 @@
       Game.save(); renderBar(); MapView.refreshOverlay();
     };
     painting = [];
+    // each piece of land you drag over joins the line; a finger that slips onto the enemy side of the border
+    // takes your provinces touching that spot instead (those next to the last one painted, when there is one)
     Game.paint = function (id) {
-      if (id === null || !War.friendly(a.tag, Game.province(id)) || painting.indexOf(id) >= 0) return;
-      painting.push(id); setLine(painting); MapView.refreshOverlay();
+      if (id === null) return;
+      var add = [], last = painting[painting.length - 1];
+      if (War.friendly(a.tag, Game.province(id))) add = [id];
+      else if (kind === 'front') add = Game.neighbors(id).filter(function (n) {
+        return War.friendly(a.tag, Game.province(n)) && (last === undefined || n === last || Game.neighbors(n).indexOf(last) >= 0);
+      });
+      var grew = false;
+      add.forEach(function (n) { if (painting.indexOf(n) < 0) { painting.push(n); grew = true; } });
+      if (grew) { setLine(painting); MapView.refreshOverlay(); }
     };
     Game.paintEnd = function () { var n = painting ? painting.length : 0; cancelTool(); if (n) { Game.save(); renderBar(); } };
   }
-  function needArmy() { var a = armyById(activeArmy); if (!a) toast('Click an army in the bar below first (or form one with G)', 'bad'); return a; }
+  // the army the tools work on: the active one, or a new army made on the spot from the divisions you picked
+  function needArmy() {
+    var a = armyById(activeArmy); if (a) return a;
+    var p = picked();
+    if (!p.length) { toast('Tap one of your division counters first (or an army in the bar below)', 'bad'); return null; }
+    a = War.newArmy(Game.player, p.map(function (d) { return d.id; })); activeArmy = a.id;
+    Game.save(); renderBar(); MapView.refreshOverlay(); toast('Formed ' + a.name + ' from the picked divisions');
+    return a;
+  }
+  function deselect() { activeArmy = null; setSel([], false); }
   function frontTool() { var a = needArmy(); if (a) paintTool(a, 'front'); }
   function fallbackTool() { var a = needArmy(); if (a) paintTool(a, 'fallback'); }
   function garrisonTool() { var a = needArmy(); if (a) paintTool(a, 'garrison'); }
@@ -183,11 +201,15 @@
     } else if (p.length) {
       var c = { inf: 0, cav: 0, art: 0 }, s = 0; p.forEach(function (d) { c[d.type]++; s += d.str; });
       act.appendChild(h('span', 'ab-info', p.length + ' selected (' + [c.inf && c.inf + ' inf', c.cav && c.cav + ' cav', c.art && c.art + ' art'].filter(Boolean).join(', ') + ') at ' + pct(s / p.length)));
+      act.appendChild(btn('ghost', 'Deselect', deselect, 'Let go of these divisions (Esc)'));
+      if (!a) act.appendChild(btn('ghost', 'Draw front (Z)', frontTool, 'Form these divisions into an army and drag its front line along the border'));
       act.appendChild(btn('ghost', 'New army (G)', newArmy));
       if (a && p.some(function (d) { return a.divs.indexOf(d.id) < 0; })) act.appendChild(btn('ghost', 'Add to ' + a.name, function () { War.assign(a, p.map(function (d) { return d.id; })); Game.save(); renderBar(); MapView.refreshOverlay(); }));
       if (p.some(function (d) { return inArmy[d.id]; })) act.appendChild(btn('ghost', 'Remove from army', function () { War.unassign(p.map(function (d) { return d.id; })); Game.save(); renderBar(); MapView.refreshOverlay(); }));
       act.appendChild(btn('ghost', 'Halt (H)', haltSel));
-    } else act.appendChild(h('span', 'ab-info', armies.length ? 'Click an army, or drag a box on the map to select divisions.' : 'Drag a box around your divisions (or click a counter), then press G to form an army.'));
+    } else act.appendChild(h('span', 'ab-info', UI.isPhone() || matchMedia('(pointer: coarse)').matches
+      ? 'Tap a division counter to command it, then tap where to march, or Draw front.'
+      : 'Click a division counter (or drag a box) to command it, then right-click where to march.'));
     bar.appendChild(act);
 
     if (a) {
@@ -629,12 +651,21 @@
   function init() {
     MapView.addPainter(paint);
 
-    // clicking a counter selects that stack; a box selects every division inside it
+    // clicking a counter picks that stack (without opening the province); clicking it again lets go.
+    // A box selects every division inside it.
     Game.unitClick = function (sx, sy, add) {
       var hit = counterAt(sx, sy); if (!hit || hit.tag !== Game.player) return false;
-      var list = (War.at[hit.prov] || []).filter(function (d) { return d.tag === Game.player; });
-      keepSel = true; Game.select(hit.prov); keepSel = false;
+      var list = myDivsAt(hit.prov), p = picked();
+      if (!add && list.length && p.length === list.length && list.every(function (d) { return sel[d.id]; })) { deselect(); return true; }
+      if (UI.isPhone()) UI.close();   // the panel covers the army bar on a phone
       setSel(list, add); UI.refresh(); return true;
+    };
+    // a tap on the land with divisions picked: on a touch screen it is a march order; a left click lets them go
+    // (on a laptop the right button gives orders, as in Hearts of Iron)
+    Game.mapTap = function (id, o) {
+      if (!Game.player || !picked().length) return false;
+      if (o.touch) { if (id === null) return false; order(id, false); return true; }
+      deselect(); return false;
     };
     Game.on('box', function (r, o) {
       if (!Game.player) return;
@@ -643,11 +674,8 @@
       keepSel = true; Game.select(null); keepSel = false;
       setSel(list, o && o.shift);
     });
-    Game.on('select', function (id) {
-      askWar = null; if (keepSel) return;
-      setSel(id === null ? [] : myDivsAt(id), false); // looking at a province takes command of your divisions there
-      if (id !== null && myDivsAt(id).length) UI.refresh();
-    });
+    // looking at a province no longer takes command of the divisions there: you pick divisions by their counters
+    Game.on('select', function () { askWar = null; });
     Game.on('context', function (id) { if (Game.player && picked().length) order(id, false); });
 
     Game.on('day', function () {
