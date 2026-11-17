@@ -54,54 +54,70 @@
   function setHint(t) { var el = $('hint'); if (!el) return; if (t) { el.textContent = t; el.hidden = false; } else { el.textContent = ''; el.hidden = true; } }
 
   // ---------- Construction tab ----------
+  var buildCat = 0;   // which group of buildings is showing
+  var CAT_NAMES = ['Industry', 'State works', 'Land'];
+  function tile(k, v, sub) { var d = h('div', 'tile'); d.appendChild(h('div', 'tile-k', k)); d.appendChild(h('div', 'tile-v', v)); if (sub) d.appendChild(h('div', 'tile-s', sub)); return d; }
+  function meter(v, cls) { var w = h('div', 'meter' + (cls ? ' ' + cls : '')), i = h('i'); i.style.width = Math.round(Math.max(0, Math.min(1, v)) * 100) + '%'; w.appendChild(i); return w; }
   function constructionTab(body, tag, mine) {
     var b = Econ.builders(tag), q = Econ.queueOf(tag), crews = Econ.crews(tag), working = 0; crews.forEach(function (x) { working += x[1]; });
-    var hero = h('div', 'hero');
-    [['Builders', String(b.total)], ['At work', working + ' / ' + b.total], ['Projects', String(q.length)]].forEach(function (x) { var d = h('div'); d.appendChild(h('div', 'p-kicker', x[0])); d.appendChild(h('div', 'big', x[1])); hero.appendChild(d); });
-    body.appendChild(hero);
+    var tiles = h('div', 'tiles');
+    tiles.appendChild(tile('Builders', String(b.total), 'civil + artisans'));
+    tiles.appendChild(tile('At work', String(working), 'of ' + b.total));
+    tiles.appendChild(tile('Projects', String(q.length), q.length === 1 ? 'in the queue' : 'in the queue'));
+    body.appendChild(tiles);
+
+    var load = b.total ? working / b.total : 0, idle = Math.max(0, b.total - working), card = h('div', 'card');
+    var row0 = h('div', 'card-top'); row0.appendChild(h('span', 'note', 'Builders at work')); row0.appendChild(h('strong', null, pct(load))); card.appendChild(row0);
+    card.appendChild(meter(load, 'brass big'));
+    card.appendChild(h('div', 'note', idle ? idle + ' waiting: ' + (q.length ? 'every project in the queue already has its full crew (' + War.CONS.PER_PROJECT + ').' : 'nothing is queued.') : 'Every builder has a job.'));
+    var more = h('details', 'more'); more.appendChild(h('summary', null, 'Where builders come from'));
     var dl = h('dl', 'facts');
     function row(k, v) { dl.appendChild(h('dt', null, k)); dl.appendChild(h('dd', null, v)); }
-    row('Where they come from', b.civ + ' civilian factories (each 12 levels of mills, works and workshops) + ' + b.artisans + ' artisans − ' + b.consumer + ' kept on consumer goods (' + pct(b.share) + ', set by the economy law)');
+    row('Builders', b.civ + ' civilian factories (each 12 levels of mills, works and workshops) + ' + b.artisans + ' artisans − ' + b.consumer + ' kept on consumer goods (' + pct(b.share) + ', set by the economy law)');
     row('Construction speed', '+' + Math.round(War.mod(tag, 'cons') * 100) + '% from research; roads add 10% a level where the work is');
     var last = Econ.N[tag].last; if (last) row('Spent on building last month', money(last.build || 0));
-    body.appendChild(dl);
-    body.appendChild(h('p', 'note', 'As in HoI4: projects are worked in queue order, at most ' + War.CONS.PER_PROJECT + ' builders on each; money and materials are paid as the work goes. Mills, arsenals, dockyards and universities need a free building slot in their region.'));
+    more.appendChild(dl);
+    more.appendChild(h('p', 'note', 'As in HoI4: projects are worked in queue order, at most ' + War.CONS.PER_PROJECT + ' builders on each; money and materials are paid as the work goes. Mills, arsenals, dockyards and universities need a free building slot in their region.'));
+    card.appendChild(more); body.appendChild(card);
+
     if (mine) {
-      GROUPS.forEach(function (g) {
-        body.appendChild(h('h3', 'p-sub', g[0]));
-        var grid = h('div', 'buildgrid');
-        g[1].forEach(function (type) {
-          var bd = B[type]; if (!bd) return;
-          var c = btn('buildbtn' + (placing === type ? ' is-on' : ''), '', function () { if (placing === type) stopPlacing(); else startPlacing(type); EconUI.refresh(true); });
-          c.appendChild(h('strong', null, bd.name)); c.appendChild(h('span', null, num(Econ.cpCost(type)) + ' work · ' + bd.blurb));
-          grid.appendChild(c);
-        });
-        body.appendChild(grid);
+      var seg = h('div', 'seg', null); seg.setAttribute('role', 'tablist');
+      GROUPS.forEach(function (g, i) { var sb = btn('seg-b' + (i === buildCat ? ' is-on' : ''), CAT_NAMES[i], function () { buildCat = i; EconUI.refresh(true); }); sb.setAttribute('role', 'tab'); seg.appendChild(sb); });
+      body.appendChild(seg);
+      var grid = h('div', 'buildgrid');
+      GROUPS[buildCat][1].forEach(function (type) {
+        var bd = B[type]; if (!bd) return;
+        var c = btn('buildbtn' + (placing === type ? ' is-on' : ''), '', function () { if (placing === type) stopPlacing(); else startPlacing(type); EconUI.refresh(true); }, bd.blurb);
+        c.appendChild(h('strong', null, bd.name)); c.appendChild(h('span', null, num(Econ.cpCost(type)) + ' work'));
+        if (placing === type) c.appendChild(h('em', null, 'Placing'));
+        grid.appendChild(c);
       });
-      if (placing) body.appendChild(btn('ghost', 'Finish placing (Esc)', function () { stopPlacing(); EconUI.refresh(true); }));
+      body.appendChild(grid);
+      if (placing) {
+        var bn = h('div', 'place-banner'); bn.appendChild(h('span', null, 'Placing ' + B[placing].name + ': tap your provinces on the map. Green means there is room.'));
+        bn.appendChild(btn('ghost', 'Done', function () { stopPlacing(); EconUI.refresh(true); })); body.appendChild(bn);
+      }
     }
-    body.appendChild(h('h3', 'p-sub', 'Construction queue'));
-    if (!q.length) { body.appendChild(h('p', 'note', mine ? 'Nothing queued. Choose a building above, then click provinces on the map.' : 'Nothing being built.')); return; }
-    var list = h('div', 'cqueue');
-    crews.forEach(function (x, i) {
-      var pj = x[0], c = x[1], p = Game.provinces[pj.prov], eta = Econ.projectEta(pj), r = h('div', 'cq' + (c ? '' : ' idle'));
-      var top = h('div', 'cq-top'), nm = h('span', 'cq-name');
-      nm.appendChild(h('strong', null, B[pj.type].name)); nm.appendChild(document.createTextNode(' · '));
-      nm.appendChild(btn('link', p.name, function () { Game.select(pj.prov); MapView.focusProvince(pj.prov); }));
+    body.appendChild(h('h3', 'sec-title', 'Queue, worked in order'));
+    if (!q.length) { body.appendChild(h('p', 'note', mine ? 'Nothing queued. Choose a building above, then tap provinces on the map.' : 'Nothing being built.')); return; }
+    crews.forEach(function (x) {
+      var pj = x[0], c = x[1], p = Game.provinces[pj.prov], eta = Econ.projectEta(pj), r = h('div', 'card' + (c ? '' : ' idle'));
+      var top = h('div', 'card-top'), nm = h('div');
+      nm.appendChild(h('strong', null, B[pj.type].name));
+      var where = h('div', 'note'); where.appendChild(btn('link', p.name, function () { Game.select(pj.prov); MapView.focusProvince(pj.prov); })); nm.appendChild(where);
       top.appendChild(nm);
       if (mine) {
-        var acts = h('span', 'cq-acts');
+        var acts = h('span', 'card-acts');
         acts.appendChild(btn('ghost sq', '⤒', function () { Econ.moveProject(pj, 'top'); refreshAll(); }, 'To the front of the queue'));
         acts.appendChild(btn('ghost sq', '↑', function () { Econ.moveProject(pj, -1); refreshAll(); }, 'Up'));
         acts.appendChild(btn('ghost sq', '↓', function () { Econ.moveProject(pj, 1); refreshAll(); }, 'Down'));
         acts.appendChild(btn('ghost sq', '×', function () { Econ.cancelProject(pj); refreshAll(); }, 'Cancel (half the wages paid come back)'));
         top.appendChild(acts);
       }
-      r.appendChild(top); r.appendChild(bar(pj.cp / pj.need, 'good'));
-      r.appendChild(h('span', 'note', num(Math.round(pj.cp)) + ' / ' + num(pj.need) + ' · ' + c + ' builders' + (c ? ' · ' + (isFinite(eta) ? eta + ' days' : '—') : ' · waiting for builders') + (p.ctrl !== p.owner ? ' · halted: occupied' : '')));
-      list.appendChild(r);
+      r.appendChild(top); r.appendChild(meter(pj.cp / pj.need, c ? 'good' : ''));
+      r.appendChild(h('div', 'note', pct(pj.cp / pj.need) + ' · ' + c + ' builders' + (c ? ' · ' + (isFinite(eta) ? eta + ' days' : '—') : ' · waiting for builders') + (p.ctrl !== p.owner ? ' · halted: occupied' : '')));
+      body.appendChild(r);
     });
-    body.appendChild(list);
   }
 
   // ---------- research screen ----------

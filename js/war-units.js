@@ -285,7 +285,7 @@
     var t = typeof tplOrCls === 'number' ? this.tplById(tplOrCls) : this.tplOfCls(tag, tplOrCls), T = this.tplStats(t), n = this.econ.N[tag], cost = T.money * (n.pi || 1);
     this.M[tag].manpower -= T.men; for (var g in T.eq) n.stockpile[g] -= T.eq[g];
     n.treasury -= cost; n.spentBuild += cost;
-    this.recruits.push({ tag: tag, tpl: t.id, prov: prov, left: T.days });
+    this.recruits.push({ tag: tag, tpl: t.id, prov: prov, left: T.days, total: T.days });
     return null;
   };
   War.legDays = function (d, from, leg) {
