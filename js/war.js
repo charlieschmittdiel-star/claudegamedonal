@@ -22,6 +22,9 @@
   var T_WIDTH = { p: 8, h: 6, f: 6, s: 5, m: 4, d: 7 };             // divisions a side can bring to bear at once
 
   // Field armies in 1805 as [infantry, cavalry, artillery] divisions. Anyone not listed gets a force sized to its people.
+  // Starting garrisons thinned on purpose, so France is not stopped at the Alpine and Danube gates on day one:
+  // Austria keeps its troops in Bohemia, Moravia, Hungary and Italy, and the Tyrol and Danube passes are lightly held.
+  var THIN = { AUS: { Linz: 0.3, Innsbruck: 0.3, Bregenz: 0.3, Freiburg: 0.3, Salzburg: 0.3, Lienz: 0.3, 'St. Pölten': 0.5 } };
   var ARMIES = {
     FRA: [34, 9, 5], AUS: [26, 8, 4], RUS: [30, 9, 5], PRU: [18, 6, 3], GBR: [9, 2, 2], SPA: [10, 3, 1], OTT: [16, 8, 2],
     ITA: [3, 1, 0], BAT: [2, 0, 1], BAV: [3, 1, 0], WUR: [1, 0, 0], BAD: [1, 0, 0], SWE: [4, 1, 1], DEN: [4, 1, 0], NAP: [3, 1, 0],
@@ -208,6 +211,7 @@
         if (foes.length && dist[p.id] !== undefined && dist[p.id] <= 5) v = 6 / (dist[p.id] * dist[p.id]);
         else { var border = false; for (var i = 0; i < p.adj.length; i++) if (self.provs[p.adj[i]].owner !== tag) border = true; v = border ? 1 : 0.15; }
         v *= 0.5 + Math.min(1.5, P[p.id].pop / 300000);
+        var lite = THIN[tag] && THIN[tag][p.name]; if (lite) v *= lite;   // fewer troops at a start on the borders we want open
         if (cap && p.id === cap.id) v += 3;
         w[p.id] = v; total += v;
       });
