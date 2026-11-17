@@ -82,9 +82,10 @@
       if (p.ctrl !== p.owner || !W.hostile(s.by, p)) { delete S[k]; return; }
       var here = (W.at[id] || []).filter(function (d) { return W.allied(d.tag, s.by) && d.battle === null && !d.path.length; });
       if (!here.length) { s.prog = Math.max(0, s.prog - 1); if (s.prog <= 0 && W.day - s.day > 10) delete S[k]; return; }   // leaving only slowly undoes the work
-      var pw = 0; here.forEach(function (d) { var st = W.stats(d); pw += d.str * (d.type === 'art' || (st.n && st.n.art) ? 1.8 : 1) * (st.has.eng ? 1.5 : 1); });
+      var pw = 0, trains = 0; here.forEach(function (d) { if (W.stats(d).has.siege) trains++; });
+      here.forEach(function (d) { var st = W.stats(d); pw += d.str * (d.type === 'art' || (st.n && st.n.art) ? 1.8 : 1) * (st.has.eng ? 1.5 : 1) * (st.has.siege ? 2 : 1); });
       var starving = W.blockaded && W.blockaded(id, p.owner) ? 1.4 : 1;
-      s.prog += Math.min(2, 0.4 + pw * 0.2) * starving;
+      s.prog += Math.min(2 + Math.min(2, 0.5 * trains), 0.4 + pw * 0.2) * starving;   // siege trains lift the daily cap (up to +2)
       if (s.prog >= s.need) {
         delete S[k]; W._siegeDone = true; W.setCtrl(p, here[0].tag); W._siegeDone = false;
         W.event(here[0].tag === W.player || p.owner === W.player ? (p.owner === W.player ? 'lost' : 'battle') : 'siegequiet', 'The fortress of ' + p.name + ' surrenders to ' + W.nations[here[0].tag].short + ' after a siege of ' + (W.day - s.day) + ' days', { a: here[0].tag, b: p.owner, prov: id });

@@ -379,7 +379,7 @@
     la.list.forEach(function (d) {
       var s = self.stats(d), cm = self.cmdOf(d), xp = 1 + self.xpLevel(d.xp || 0).mod, tr = s.terr[t];
       var cls = tr.inf * (1 + (t === 'f' || t === 's' ? cm.light * (s.n.inf ? 1 : 0) : 0)) + tr.cav * (1 + cm.cav) + tr.art * (1 + cm.art);
-      var riv = river ? 1 - (s.has.eng ? 0.15 : 0.3) * Math.max(0, 1 - self.mod(d.tag, 'river')) : 1, fortM = fort ? Math.max(0.3, 1 - 0.15 * fort * (1 + self.mod(p.ctrl, 'fort')) * (s.has.eng ? 0.75 : 1)) : 1;
+      var riv = river ? 1 - (s.has.eng ? 0.15 : 0.3) * Math.max(0, 1 - self.mod(d.tag, 'river')) : 1, fortM = fort ? Math.max(0.3, 1 - 0.15 * fort * (1 + self.mod(p.ctrl, 'fort')) * (s.has.eng ? 0.75 : 1) * (s.has.siege ? 0.6 : 1)) : 1;
       var a = cls * T_ATK[t] * penalty * riv * fortM * (1 + cm.atk + (hilly ? cm.hills : 0)) * (1 + (d.plan || 0)) * xp * s.q * (s.has.scouts ? 1.08 : 1) * (d.nosupply ? 0.6 : 1) * (wx ? wx.atk : 1);
       var sfa = 0.7 + 0.3 * (d.sr === undefined ? 1 : d.sr);
       var dma = self.dm ? self.dm(d, 'a', bt) : 1;

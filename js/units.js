@@ -26,6 +26,7 @@
     surg: { name: 'Field surgeons', men: 100, eq: {}, money: 50, upkeep: 3, blurb: '−25% casualties; veterans are kept when men are replaced' },
     train: { name: 'Supply train', men: 200, eq: { horses: 6 }, money: 50, upkeep: 4, blurb: '−20% supply use, −25% losses to hunger and winter' },
     staff: { name: 'Couriers', men: 100, eq: { horses: 2 }, money: 40, upkeep: 3, blurb: '+25% chance to bring reserves into battle, +20% organisation recovery' },
+    siege: { name: 'Siege train', men: 250, eq: { artillery: 4, horses: 8 }, money: 90, upkeep: 6, blurb: 'Mortars, heavy guns and gabions: doubles the division\'s weight in a siege, and −40% to the penalty of attacking a fort' },
     guns: { name: 'Regimental guns', men: 150, eq: { artillery: 2, horses: 2 }, money: 60, upkeep: 4, atk: 7, brk: 1, blurb: '+7 attack, +1 breakthrough' }
   };
   var COLS = 5, ROWS = 5, SUP_SLOTS = 5;
