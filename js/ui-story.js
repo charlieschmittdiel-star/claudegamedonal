@@ -35,18 +35,30 @@
     open = 'event:' + e.id;
     var c = modalCard(e.title); c.m.classList.add('story-modal');
     c.body.appendChild(h('p', 'story-chapter', e.ch + ' · ' + Game.dateText()));
-    c.body.appendChild(h('p', 'story-text', e.text));
-    var opts = h('div', 'story-opts');
+    c.body.appendChild(h('p', 'story-text', War.storyText(e)));
+    var opts = h('div', 'story-opts'), st = War.storyOptState(e), anyOk = st.some(function (x) { return x.ok; });
     e.opts.forEach(function (o, i) {
-      var b = btn('story-opt' + (o.hist && s.mode !== 'off' ? ' hist' : ''), o.t, function () {
+      var x = st[i], ok = x.ok || (!anyOk && i === e.opts.length - 1);
+      var b = btn('story-opt' + (o.hist && s.mode !== 'off' ? ' hist' : '') + (ok ? '' : ' blocked'), '', function () {
+        if (!ok) return;
         War.storyChoose(e, i); closeModal(); Game.save(); UI.refresh(); EconUI.refresh(true); MapView.redraw(); MapView.refreshOverlay();
         if (War.story.pending.length) setTimeout(showEvent, 0); else if (Game.paused && War.story.resume) { War.story.resume = false; Game.setPaused(false); }
       });
+      b.appendChild(h('span', 'story-opt-t', o.t));
+      // what it does
+      if (x.fx.length) { var ul = h('ul', 'story-fx'); x.fx.forEach(function (t) { ul.appendChild(h('li', null, t)); }); b.appendChild(ul); }
+      // what it needs: met (✓), missing (✗, blocks the choice) or a warning (⚠, does not block)
+      if (x.need.length) {
+        var rl = h('ul', 'story-req');
+        x.need.forEach(function (r) { rl.appendChild(h('li', r.ok ? 'ok' : r.warn ? 'warn' : 'no', (r.ok ? '✓ ' : r.warn ? '⚠ ' : '✗ ') + r.txt)); });
+        b.appendChild(rl);
+      }
+      if (!ok) { b.disabled = true; b.setAttribute('aria-disabled', 'true'); }
       if (o.hist) b.title = 'What happened in history';
       opts.appendChild(b);
     });
     c.body.appendChild(opts);
-    c.body.appendChild(h('p', 'muted small', 'The ★ choice is what happened in history. Either way, the story follows what you do.'));
+    c.body.appendChild(h('p', 'muted small', 'The ★ choice is what happened in history. Greyed-out choices are not possible yet (✗ shows what is missing); ⚠ is a warning only. Either way, the story follows what you do.'));
   }
 
   // ---------- the journal ----------
@@ -72,13 +84,13 @@
 
     // what history expects next
     left.appendChild(h('h3', null, 'History expects next'));
-    var next = War.storyNext(6), ul = h('ul', 'story-next');
+    var next = War.storyNext(8, Game.player), ul = h('ul', 'story-next');
     if (!next.length) ul.appendChild(h('li', 'muted', s.mode === 'off' ? 'The story is switched off.' : 'History has nothing more to say. The rest is yours.'));
     next.forEach(function (x) {
       var li = h('li', x.ready ? 'ready' : x.open ? 'open' : 'later');
       li.appendChild(h('b', null, x.e.title)); li.appendChild(h('span', null, ' · ' + short(x.e.who)));
       li.appendChild(h('div', 'small', x.e.expect));
-      li.appendChild(h('div', 'small muted', x.ready ? 'Could happen any day now' : x.open ? 'Waiting for the world to make it possible' : 'Not before ' + MONTHS[x.e.from[1] - 1] + ' ' + x.e.from[0]));
+      li.appendChild(h('div', 'small muted', x.wait ? 'Put off until about ' + dateOf(x.wait) : x.ready ? 'Could happen any day now' : x.open ? 'Waiting for the world to make it possible' : 'Not before ' + MONTHS[x.e.from[1] - 1] + ' ' + x.e.from[0]));
       ul.appendChild(li);
     });
     left.appendChild(ul);
@@ -113,6 +125,8 @@
       var li = h('li', r.hist ? 'hist' : 'alt');
       li.appendChild(h('span', 'muted small', dateOf(r.day) + ' ')); li.appendChild(h('b', null, e.title));
       li.appendChild(h('span', null, ': ' + short(r.who) + ' chose "' + r.choice + '"' + (r.hist ? '' : ' (not as in history)')));
+      // what the choice did (for your own choices, and the great powers')
+      if (r.fx && r.fx.length && (r.who === Game.player || (Game.nations[r.who] && Game.nations[r.who].major))) li.appendChild(h('div', 'small muted story-log-fx', '→ ' + r.fx.join(' · ')));
       log.appendChild(li);
     });
     body.appendChild(log);
